@@ -1,35 +1,8 @@
 #include <raylib.h>
 #include <string.h>
-
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 800
-
-#define BLOCKS 8
-#define BLOCK_SIZE (SCREEN_WIDTH / BLOCKS)
-
-const char* init_board = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
-
-typedef struct Position {
-    int x;
-    int y;
-} Position;
-
-typedef enum PieceType {
-    W_PAWN, B_PAWN, W_KNIGHT, B_KNIGHT,
-    W_BISHOP, B_BISHOP, W_ROOK, B_ROOK,
-    W_QUEEN, B_QUEEN, W_KING, B_KING,
-    EMPTY,
-    PIECE_COUNT
-} PieceType;
-
-typedef struct ChessPiece {
-    PieceType type;
-    Position position;
-} ChessPiece;
-
-typedef struct ChessPieces {
-    Texture2D textures[PIECE_COUNT];
-} ChessPieces;
+#include <stdio.h>
+#include <stdlib.h>
+#include "chess.h"
 
 PieceType getPiece(char piece) {
     switch (piece) {
@@ -62,6 +35,8 @@ void LoadPieces (ChessPieces* pieces) {
     pieces->textures[B_QUEEN] = LoadTexture("img/bq.png");
     pieces->textures[W_KING] = LoadTexture("img/wk.png");
     pieces->textures[B_KING] = LoadTexture("img/bk.png");
+    pieces->textures[W_GOLEM] = LoadTexture("img/wg.png");
+    pieces->textures[B_GOLEM] = LoadTexture("img/bg.png");
 }
 
 void UnloadPieces (ChessPieces* pieces) {
@@ -86,24 +61,68 @@ void drawBoard() {
     }
 }
 
-void drawPiece(Texture2D texture, int file, int rank) {
+void drawPiece(Texture2D texture, int file, int rank)
+{
     DrawTexturePro(
         texture,
-        (Rectangle) {0, 0, (float)texture.width, (float)texture.height},
-        (Rectangle) {
+        (Rectangle){0, 0, texture.width, texture.height},
+        (Rectangle){
             file * BLOCK_SIZE,
-            rank * BLOCK_SIZE,
+            (7 - rank) * BLOCK_SIZE,
             BLOCK_SIZE,
             BLOCK_SIZE
         },
-        (Vector2) {0, 0},
+        (Vector2){0, 0},
         0.0f,
         WHITE
     );
 }
 
-void fenParseBoard(const char *board, ChessPieces *pieces) {
-    int rank = 0, file = 0;
+void drawPieces(GameState *gameState, ChessPieces *pieces)
+{
+    for (int rank = 0; rank < 8; rank++) {
+        for (int file = 0; file < 8; file++) {
+            PieceType p = gameState->chessBoard[rank][file];
+            if (p != EMPTY) {
+                drawPiece(pieces->textures[p], file, rank);
+            }
+        }
+    }
+}
+
+void placeGolems(GameState *state)
+{
+    for (int i = 0; i < 2; i++)
+    {
+        int file, rank;
+
+        do {
+            file = rand() % 8;
+            rank = rand() % 8;
+        } while (state->chessBoard[rank][file] != EMPTY);
+
+        state->chessBoard[rank][file] =
+            (i == 0) ? W_GOLEM : B_GOLEM;
+    }
+}
+
+void updateGameState(GameState *gameState, int fromFile, int fromRank, int toFile, int toRank) {
+    PieceType pieceToMove = gameState->chessBoard[fromFile][fromRank]; 
+    gameState->chessBoard[fromFile][fromRank] = EMPTY;
+
+    gameState->chessBoard[toFile][toRank] = pieceToMove;
+}
+
+void loadBoardFromFEN(GameState *state, const char *board)
+{
+    int rank = 0;
+    int file = 0;
+
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            state->chessBoard[i][j] = EMPTY;
+        }
+    }
 
     for (int i = 0; board[i] != '\0'; i++) {
         char c = board[i];
@@ -113,32 +132,34 @@ void fenParseBoard(const char *board, ChessPieces *pieces) {
             file = 0;
         }
         else if (c >= '1' && c <= '8') {
-            file += (c - '0');
+            file += c - '0';
         }
         else {
-            PieceType p = getPiece(c);
-            if (p!= EMPTY) {
-                drawPiece(pieces->textures[p], file, rank);
-            }
+            state->chessBoard[rank][file] = getPiece(c);
             file++;
         }
     }
 }
 
+
+
 int main(void) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Chess");
     SetTargetFPS(60);
-    ChessPieces chessPieces;
-    LoadPieces(&chessPieces);
 
-    
+    ChessPieces chessPieces;
+    GameState gameState;
+
+    LoadPieces(&chessPieces);
+    loadBoardFromFEN(&gameState, init_board);
+    placeGolems(&gameState);
+
     while(!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(RED);
 
         drawBoard();
-
-        fenParseBoard(init_board, &chessPieces);
+        drawPieces(&gameState, &chessPieces);
 
         EndDrawing();
     }
