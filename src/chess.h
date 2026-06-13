@@ -7,8 +7,8 @@
 const char* init_board = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
 
 typedef struct Position {
-    int x;
-    int y;
+    int rank;
+    int file;
 } Position;
 
 typedef enum PieceType {
@@ -20,12 +20,6 @@ typedef enum PieceType {
     PIECE_COUNT
 } PieceType;
 
-// TODO: update this maybe
-typedef struct ChessPiece {
-    PieceType type;
-    Position position;
-} ChessPiece;
-
 typedef struct ChessPieces {
     Texture2D textures[PIECE_COUNT];
 } ChessPieces;
@@ -34,3 +28,15 @@ typedef struct GameState {
     PieceType chessBoard[8][8];
     bool whiteToMove;
 } GameState;
+
+typedef struct Move {
+    PieceType piece;
+    int fromRank, fromFile;
+    int toRank, toFile;
+} Move;
+
+typedef struct DragState {
+    bool isDragging;
+    PieceType piece;
+    Position from;
+} DragState;

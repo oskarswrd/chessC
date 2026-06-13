@@ -90,6 +90,10 @@ void drawPieces(GameState *gameState, ChessPieces *pieces)
     }
 }
 
+void placePiece (GameState *gameState, PieceType piece, int rank, int file) {
+    gameState->chessBoard[rank][file] = piece;
+}
+
 void placeGolems(GameState *state)
 {
     for (int i = 0; i < 2; i++)
@@ -100,17 +104,14 @@ void placeGolems(GameState *state)
             file = rand() % 8;
             rank = rand() % 8;
         } while (state->chessBoard[rank][file] != EMPTY);
-
-        state->chessBoard[rank][file] =
-            (i == 0) ? W_GOLEM : B_GOLEM;
+        (i==0) ? placePiece(state, W_GOLEM, rank, file) : placePiece(state, B_GOLEM, rank, file);
     }
 }
 
-void updateGameState(GameState *gameState, int fromFile, int fromRank, int toFile, int toRank) {
-    PieceType pieceToMove = gameState->chessBoard[fromFile][fromRank]; 
-    gameState->chessBoard[fromFile][fromRank] = EMPTY;
-
-    gameState->chessBoard[toFile][toRank] = pieceToMove;
+void updateGameState(GameState *gameState, Move *move) {
+    PieceType pieceToMove = gameState->chessBoard[move->fromFile][move->fromRank]; 
+    gameState->chessBoard[move->fromFile][move->fromRank] = EMPTY;
+    gameState->chessBoard[move->toFile][move->toRank] = pieceToMove;
 }
 
 void loadBoardFromFEN(GameState *state, const char *board)
@@ -141,7 +142,50 @@ void loadBoardFromFEN(GameState *state, const char *board)
     }
 }
 
+void handleInput(GameState *gameState, DragState *drag) {
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Position clicked;
+        clicked.file = GetMouseX() / BLOCK_SIZE;
+        clicked.rank = 7 - (GetMouseY() / BLOCK_SIZE);
 
+        PieceType piece = gameState->chessBoard[clicked.rank][clicked.file];
+        if (piece != EMPTY) {
+            drag->isDragging = true;
+            drag->piece = piece;
+            drag->from = clicked;
+            gameState->chessBoard[clicked.rank][clicked.file] = EMPTY;
+        }
+    }
+
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && drag->isDragging) {
+        Position dropped;
+        dropped.file = GetMouseX() / BLOCK_SIZE;
+        dropped.rank = 7 - (GetMouseY() / BLOCK_SIZE);
+
+        gameState->chessBoard[dropped.rank][dropped.file] = drag->piece;
+        drag->isDragging = false;
+        drag->piece = EMPTY;
+
+        printf("Dragged piece");
+    }
+}
+
+void render(GameState *gameState, ChessPieces *pieces, DragState *drag) {
+    ClearBackground(RED);
+    drawBoard();
+    drawPieces(gameState, pieces);
+
+    if (drag->isDragging) {
+        DrawTexturePro(
+            pieces->textures[drag->piece],
+            (Rectangle){0, 0, pieces->textures[drag->piece].width, pieces->textures[drag->piece].height},
+            (Rectangle){GetMouseX() - BLOCK_SIZE/2, GetMouseY() - BLOCK_SIZE/2, BLOCK_SIZE, BLOCK_SIZE},
+            (Vector2){0, 0},
+            0.0f,
+            WHITE
+        );
+    }
+}
 
 int main(void) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Chess");
@@ -149,21 +193,18 @@ int main(void) {
 
     ChessPieces chessPieces;
     GameState gameState;
+    DragState dragState = {0};
 
     LoadPieces(&chessPieces);
     loadBoardFromFEN(&gameState, init_board);
     placeGolems(&gameState);
 
     while(!WindowShouldClose()) {
+        handleInput(&gameState, &dragState);
         BeginDrawing();
-        ClearBackground(RED);
-
-        drawBoard();
-        drawPieces(&gameState, &chessPieces);
-
+            render(&gameState, &chessPieces, &dragState);
         EndDrawing();
     }
-
     UnloadPieces(&chessPieces);
 
     CloseWindow();
