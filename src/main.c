@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "chess.h"
 
 PieceType getPiece(char piece) {
@@ -19,6 +20,30 @@ PieceType getPiece(char piece) {
         case 'Q' : return B_QUEEN;
         case 'K' : return B_KING;
         default  : return EMPTY;
+    }
+}
+
+PieceColor getColor(PieceType p) {
+    if (p >= W_PAWN && p <= W_KING) return W;
+    if (p >= B_PAWN && p <= B_KING) return B;
+    return NONE;
+}
+
+const char* pieceToString(PieceType p) {
+    switch (p) {
+        case W_PAWN:   return "WhitePawn";
+        case W_KNIGHT: return "WhiteKnight";
+        case W_BISHOP: return "WhiteBishop";
+        case W_ROOK:   return "WhiteRook";
+        case W_QUEEN:  return "WhiteQueen";
+        case W_KING:   return "WhiteKing";
+        case B_PAWN:   return "BlackPawn";
+        case B_KNIGHT: return "BlackKnight";
+        case B_BISHOP: return "BlackBishop";
+        case B_ROOK:   return "BlackRook";
+        case B_QUEEN:  return "BlackQueen";
+        case B_KING:   return "BlackKing";
+        default:     return "Unknown";
     }
 }
 
@@ -108,11 +133,31 @@ void placeGolems(GameState *state)
     }
 }
 
-void updateGameState(GameState *gameState, Move *move) {
-    PieceType pieceToMove = gameState->chessBoard[move->fromFile][move->fromRank]; 
-    gameState->chessBoard[move->fromFile][move->fromRank] = EMPTY;
-    gameState->chessBoard[move->toFile][move->toRank] = pieceToMove;
+// Simplify for just pawns first
+bool validPosition(PieceType piece, Position from, Position to) {
+    int direction;
+    int startRank;
+
+    switch (piece) {
+        case W_PAWN:
+            direction = 1;
+            startRank = 1;
+            break;
+        case B_PAWN:
+            direction = -1;
+            startRank = 6;
+            break;
+        default:
+            return false;
+    }
+
+    if (to.file != from.file) return false;
+    if (to.rank == from.rank + direction) return true;
+    if (to.rank == from.rank + 2 * direction && from.rank == startRank) return true;
+
+    return false;
 }
+
 
 void loadBoardFromFEN(GameState *state, const char *board)
 {
@@ -144,17 +189,20 @@ void loadBoardFromFEN(GameState *state, const char *board)
 
 void handleInput(GameState *gameState, DragState *drag) {
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        PieceType piece;
         Position clicked;
         clicked.file = GetMouseX() / BLOCK_SIZE;
         clicked.rank = 7 - (GetMouseY() / BLOCK_SIZE);
 
-        PieceType piece = gameState->chessBoard[clicked.rank][clicked.file];
+        piece = gameState->chessBoard[clicked.rank][clicked.file];
         if (piece != EMPTY) {
             drag->isDragging = true;
             drag->piece = piece;
             drag->from = clicked;
             gameState->chessBoard[clicked.rank][clicked.file] = EMPTY;
         }
+
+        printf("File clicked: %d and rank clicked %d\n", clicked.file, clicked.rank);
     }
 
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && drag->isDragging) {
@@ -162,11 +210,17 @@ void handleInput(GameState *gameState, DragState *drag) {
         dropped.file = GetMouseX() / BLOCK_SIZE;
         dropped.rank = 7 - (GetMouseY() / BLOCK_SIZE);
 
-        gameState->chessBoard[dropped.rank][dropped.file] = drag->piece;
+        printf("Dropped %s\n", pieceToString(drag->piece));
+        
+        if(validPosition(drag->piece, drag->from, dropped)){
+            gameState->chessBoard[dropped.rank][dropped.file] = drag->piece;
+            printf("Updated gamestate!\n");
+        }
         drag->isDragging = false;
         drag->piece = EMPTY;
 
-        printf("Dragged piece");
+        printf("file dropped: %d and rank dropped %d\n", dropped.file, dropped.rank);
+        // Check if position is valid for piece
     }
 }
 

@@ -11,6 +11,12 @@ typedef struct Position {
     int file;
 } Position;
 
+typedef enum {
+    W,
+    B,
+    NONE
+} PieceColor;
+
 typedef enum PieceType {
     W_PAWN, B_PAWN, W_KNIGHT, B_KNIGHT,
     W_BISHOP, B_BISHOP, W_ROOK, B_ROOK,
@@ -19,6 +25,7 @@ typedef enum PieceType {
     EMPTY,
     PIECE_COUNT
 } PieceType;
+
 
 typedef struct ChessPieces {
     Texture2D textures[PIECE_COUNT];
@@ -31,8 +38,8 @@ typedef struct GameState {
 
 typedef struct Move {
     PieceType piece;
-    int fromRank, fromFile;
-    int toRank, toFile;
+    Position from;
+    Position to;
 } Move;
 
 typedef struct DragState {
